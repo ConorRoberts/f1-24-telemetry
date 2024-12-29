@@ -1,4 +1,17 @@
+pub mod car_motion_data;
+pub mod car_setups;
+pub mod car_status;
+pub mod car_telemetry;
+pub mod event;
+pub mod final_classification;
+pub mod header;
+pub mod lap_data;
+pub mod participants;
 pub mod session_data;
+
+pub trait Packet {
+    fn size() -> usize;
+}
 
 #[derive(Debug)]
 pub enum PacketType {

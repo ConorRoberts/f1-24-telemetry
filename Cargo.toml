@@ -10,3 +10,11 @@ serde_json = "1.0.133"
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15.7"
 clap = { version = "4.5.23", features = ["derive"] }
+
+[[bin]]
+name = "api"
+path = "src/api.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"

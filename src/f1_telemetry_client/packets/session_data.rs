@@ -1,3 +1,5 @@
+use super::Packet;
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MarshalZone {
     pub zone_start: f32, // 0..1 fraction through lap
@@ -8,7 +10,7 @@ impl TryFrom<&[u8]> for MarshalZone {
     type Error = String;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < 5 {
+        if bytes.len() < MarshalZone::size() {
             return Err("Buffer too small for MarshalZone".into());
         }
 
@@ -16,6 +18,12 @@ impl TryFrom<&[u8]> for MarshalZone {
             zone_start: f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
             zone_flag: i8::from_le_bytes([bytes[4]]),
         });
+    }
+}
+
+impl Packet for MarshalZone {
+    fn size() -> usize {
+        5
     }
 }
 
@@ -31,23 +39,29 @@ pub struct WeatherForecastSample {
     pub rain_percentage: u8, // Rain percentage (0-100)
 }
 
+impl Packet for WeatherForecastSample {
+    fn size() -> usize {
+        8
+    }
+}
+
 impl TryFrom<&[u8]> for WeatherForecastSample {
     type Error = String;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        if bytes.len() < 8 {
+        if bytes.len() < WeatherForecastSample::size() {
             return Err("Buffer too small for WeatherForecastSample".into());
         }
 
         return Ok(Self {
-            session_type: u8::from_le_bytes([bytes[0]]),
-            time_offset: u8::from_le_bytes([bytes[1]]),
-            weather: u8::from_le_bytes([bytes[2]]),
+            session_type: bytes[0],
+            time_offset: bytes[1],
+            weather: bytes[2],
             track_temperature: i8::from_le_bytes([bytes[3]]),
             track_temperature_change: i8::from_le_bytes([bytes[4]]),
             air_temperature: i8::from_le_bytes([bytes[5]]),
             air_temperature_change: i8::from_le_bytes([bytes[6]]),
-            rain_percentage: u8::from_le_bytes([bytes[7]]),
+            rain_percentage: bytes[7],
         });
     }
 }
@@ -133,12 +147,17 @@ pub struct PacketSessionData {
     pub sector3_lap_distance_start: f32, // Distance in m for sector 3 start
 }
 
+impl Packet for PacketSessionData {
+    fn size() -> usize {
+        724
+    }
+}
+
 impl TryFrom<&[u8]> for PacketSessionData {
     type Error = String;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        println!("{}", bytes.len());
-        if bytes.len() < 724 {
+        if bytes.len() < PacketSessionData::size() {
             return Err("Buffer too small for PacketSessionData".into());
         }
 
@@ -164,15 +183,6 @@ impl TryFrom<&[u8]> for PacketSessionData {
                 for i in 0..21 {
                     let base = 19 + (i * 5);
                     zones[i] = MarshalZone::try_from(&bytes[base..base + 5])?
-                    // zones[i] = MarshalZone {
-                    //     zone_start: f32::from_le_bytes([
-                    //         bytes[base],
-                    //         bytes[base + 1],
-                    //         bytes[base + 2],
-                    //         bytes[base + 3],
-                    //     ]),
-                    //     zone_flag: i8::from_le_bytes([bytes[base + 4]]),
-                    // };
                 }
                 zones
             },
@@ -184,16 +194,6 @@ impl TryFrom<&[u8]> for PacketSessionData {
                 for i in 0..64 {
                     let base = 127 + (i * 8);
                     samples[i] = WeatherForecastSample::try_from(&bytes[base..base + 8])?
-                    // samples[i] = WeatherForecastSample {
-                    //     session_type: bytes[base],
-                    //     time_offset: bytes[base + 1],
-                    //     weather: bytes[base + 2],
-                    //     track_temperature: i8::from_le_bytes([bytes[base + 3]]),
-                    //     track_temperature_change: i8::from_le_bytes([bytes[base + 4]]),
-                    //     air_temperature: i8::from_le_bytes([bytes[base + 5]]),
-                    //     air_temperature_change: i8::from_le_bytes([bytes[base + 6]]),
-                    //     rain_percentage: bytes[base + 7],
-                    // };
                 }
                 samples
             },
