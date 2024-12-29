@@ -144,8 +144,6 @@ impl TryFrom<&[u8]> for PacketLapData {
     type Error = String;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        println!("{}", bytes.len());
-
         if bytes.len() < PacketLapData::size() {
             return Err("Buffer too small for PacketLapData".into());
         }

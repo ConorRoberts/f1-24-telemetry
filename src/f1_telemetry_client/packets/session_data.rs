@@ -1,9 +1,47 @@
 use super::Packet;
 
+#[derive(Debug, Clone, Copy)]
+enum ZoneFlag {
+    Invalid,
+    Unset,
+    Green,
+    Blue,
+    Yellow,
+}
+
+impl Default for ZoneFlag {
+    fn default() -> Self {
+        Self::Unset
+    }
+}
+
+impl TryFrom<i8> for ZoneFlag {
+    type Error = String;
+
+    fn try_from(value: i8) -> Result<Self, Self::Error> {
+        match value {
+            -1 => Ok(Self::Invalid),
+            0 => Ok(Self::Unset),
+            1 => Ok(Self::Green),
+            2 => Ok(Self::Blue),
+            3 => Ok(Self::Yellow),
+            _ => Err(format!("Invalid zone flag: {}", value)),
+        }
+    }
+}
+
+impl TryFrom<u8> for ZoneFlag {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        Self::try_from(value as i8)
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MarshalZone {
     pub zone_start: f32, // 0..1 fraction through lap
-    pub zone_flag: i8,   // -1 = invalid/unknown, 0 = none, 1 = green, 2 = blue, 3 = yellow
+    pub zone_flag: ZoneFlag,
 }
 
 impl TryFrom<&[u8]> for MarshalZone {
@@ -16,7 +54,7 @@ impl TryFrom<&[u8]> for MarshalZone {
 
         return Ok(Self {
             zone_start: f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]),
-            zone_flag: i8::from_le_bytes([bytes[4]]),
+            zone_flag: ZoneFlag::try_from(bytes[4])?,
         });
     }
 }
@@ -57,10 +95,10 @@ impl TryFrom<&[u8]> for WeatherForecastSample {
             session_type: bytes[0],
             time_offset: bytes[1],
             weather: bytes[2],
-            track_temperature: i8::from_le_bytes([bytes[3]]),
-            track_temperature_change: i8::from_le_bytes([bytes[4]]),
-            air_temperature: i8::from_le_bytes([bytes[5]]),
-            air_temperature_change: i8::from_le_bytes([bytes[6]]),
+            track_temperature: bytes[3] as i8,
+            track_temperature_change: bytes[4] as i8,
+            air_temperature: bytes[5] as i8,
+            air_temperature_change: bytes[6] as i8,
             rain_percentage: bytes[7],
         });
     }
@@ -97,7 +135,7 @@ pub struct PacketSessionData {
     pub pit_stop_window_ideal_lap: u8,     // Ideal pit stop lap
     pub pit_stop_window_latest_lap: u8,    // Latest pit stop lap
     pub pit_stop_rejoin_position: u8,      // Predicted rejoin position
-    pub steering_assist: u8,               // 0 = off, 1 = on
+    pub steering_assist: bool,             // 0 = off, 1 = on
     pub braking_assist: u8,                // 0 = off, 1 = low, 2 = medium, 3 = high
     pub gearbox_assist: u8,                // 1 = manual, 2 = manual & suggested gear, 3 = auto
     pub pit_assist: u8,                    // 0 = off, 1 = on
@@ -211,7 +249,7 @@ impl TryFrom<&[u8]> for PacketSessionData {
             pit_stop_window_ideal_lap: bytes[653],
             pit_stop_window_latest_lap: bytes[654],
             pit_stop_rejoin_position: bytes[655],
-            steering_assist: bytes[656],
+            steering_assist: bytes[656] != 0,
             braking_assist: bytes[657],
             gearbox_assist: bytes[658],
             pit_assist: bytes[659],

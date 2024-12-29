@@ -1,26 +1,67 @@
 use super::Packet;
 
-#[derive(Debug, Clone, Copy)]
+/// Final race result for a driver
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum ResultStatus {
+    Invalid,
+    Inactive,
+    Active,
+    Finished,
+    DidNotFinish,
+    Disqualified,
+    NotClassified,
+    Retired,
+}
+
+impl Default for ResultStatus {
+    fn default() -> Self {
+        Self::Invalid
+    }
+}
+
+impl TryFrom<u8> for ResultStatus {
+    type Error = String;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Invalid),
+            1 => Ok(Self::Inactive),
+            2 => Ok(Self::Active),
+            3 => Ok(Self::Finished),
+            4 => Ok(Self::DidNotFinish),
+            5 => Ok(Self::Disqualified),
+            6 => Ok(Self::NotClassified),
+            7 => Ok(Self::Retired),
+            _ => Err(format!("Invalid value: {}", value)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct FinalClassificationData {
-    pub position: u8,      // Finishing position
-    pub num_laps: u8,      // Number of laps completed
-    pub grid_position: u8, // Grid position of the car
-    pub points: u8,        // Number of points scored
-    pub num_pit_stops: u8, // Number of pit stops made
-    pub result_status: u8, // Result status - 0 = invalid, 1 = inactive, 2 = active
-    // 3 = finished, 4 = didnotfinish, 5 = disqualified
-    // 6 = not classified, 7 = retired
-    pub best_lap_time_in_ms: u32, // Best lap time of the session in milliseconds
-    pub total_race_time: f64,     // Total race time in seconds without penalties
-    pub penalties_time: u8,       // Total penalties accumulated in seconds
-    pub num_penalties: u8,        // Number of penalties applied to this driver
-    pub num_tyre_stints: u8,      // Number of tyres stints up to maximum
-    pub tyre_stints_actual: [u8; 8], // Actual tyres used by this driver
-    pub tyre_stints_visual: [u8; 8], // Visual tyres used by this driver
+    pub position: u8,                  // Finishing position
+    pub num_laps: u8,                  // Number of laps completed
+    pub grid_position: u8,             // Grid position of the car
+    pub points: u8,                    // Number of points scored
+    pub num_pit_stops: u8,             // Number of pit stops made
+    pub result_status: ResultStatus,   // Result status
+    pub best_lap_time_in_ms: u32,      // Best lap time of the session in milliseconds
+    pub total_race_time: f64,          // Total race time in seconds without penalties
+    pub penalties_time: u8,            // Total penalties accumulated in seconds
+    pub num_penalties: u8,             // Number of penalties applied to this driver
+    pub num_tyre_stints: u8,           // Number of tyres stints up to maximum
+    pub tyre_stints_actual: [u8; 8],   // Actual tyres used by this driver
+    pub tyre_stints_visual: [u8; 8],   // Visual tyres used by this driver
     pub tyre_stints_end_laps: [u8; 8], // The lap number stints end on
 }
 
-#[derive(Debug, Clone)]
+impl Packet for FinalClassificationData {
+    fn size() -> usize {
+        45
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct PacketFinalClassificationData {
     pub num_cars: u8, // Number of cars in the final classification
     pub classification_data: Vec<FinalClassificationData>, // Final classification data for all cars
@@ -42,17 +83,17 @@ impl TryFrom<&[u8]> for PacketFinalClassificationData {
 
         let num_cars = bytes[0];
         let mut classification_data = Vec::with_capacity(22);
-        let mut offset = 1;
 
         // Parse classification data for each car
-        for _ in 0..22 {
+        for i in 0..22 {
+            let offset = 1 + FinalClassificationData::size() * i;
             let data = FinalClassificationData {
                 position: bytes[offset],
                 num_laps: bytes[offset + 1],
                 grid_position: bytes[offset + 2],
                 points: bytes[offset + 3],
                 num_pit_stops: bytes[offset + 4],
-                result_status: bytes[offset + 5],
+                result_status: ResultStatus::try_from(bytes[offset + 5])?,
                 best_lap_time_in_ms: u32::from_le_bytes([
                     bytes[offset + 6],
                     bytes[offset + 7],
@@ -104,42 +145,11 @@ impl TryFrom<&[u8]> for PacketFinalClassificationData {
                 ],
             };
             classification_data.push(data);
-            offset += 45; // Size of each classification data block
         }
 
         Ok(PacketFinalClassificationData {
             num_cars,
             classification_data,
         })
-    }
-}
-
-impl Default for FinalClassificationData {
-    fn default() -> Self {
-        FinalClassificationData {
-            position: 0,
-            num_laps: 0,
-            grid_position: 0,
-            points: 0,
-            num_pit_stops: 0,
-            result_status: 0,
-            best_lap_time_in_ms: 0,
-            total_race_time: 0.0,
-            penalties_time: 0,
-            num_penalties: 0,
-            num_tyre_stints: 0,
-            tyre_stints_actual: [0; 8],
-            tyre_stints_visual: [0; 8],
-            tyre_stints_end_laps: [0; 8],
-        }
-    }
-}
-
-impl Default for PacketFinalClassificationData {
-    fn default() -> Self {
-        PacketFinalClassificationData {
-            num_cars: 0,
-            classification_data: Vec::new(),
-        }
     }
 }

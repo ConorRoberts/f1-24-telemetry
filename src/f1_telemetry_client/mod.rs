@@ -6,21 +6,30 @@ use packets::car_telemetry::PacketCarTelemetry;
 use packets::header::PacketHeader;
 use packets::lap_data::PacketLapData;
 use packets::session_data::PacketSessionData;
-use packets::{Packet, PacketType};
+use packets::{header::PacketType, Packet};
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
+use tokio::time::{self, Duration};
+use tracing::{debug, error, info};
 
 type SessionData = HashMap<DateTime<Utc>, PacketCarTelemetry>;
 
 pub struct F1TelemetryClient {
     socket: Arc<UdpSocket>,
-    #[allow(dead_code)]
     session_data: Arc<Mutex<SessionData>>,
     running: Arc<Mutex<bool>>,
+    data: Arc<Mutex<Vec<(PacketHeader, FlushData)>>>,
+}
+
+enum FlushData {
+    Session(PacketSessionData),
+    Motion(PacketMotionData),
+    CarTelemetry(PacketCarTelemetry),
+    LapData(PacketLapData),
 }
 
 impl F1TelemetryClient {
@@ -30,6 +39,7 @@ impl F1TelemetryClient {
             socket: Arc::new(socket),
             session_data: Arc::new(Mutex::new(HashMap::new())),
             running: Arc::new(Mutex::new(true)),
+            data: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
@@ -37,17 +47,56 @@ impl F1TelemetryClient {
         println!("Listening for F1 24 telemetry data...");
         let mut buf = [0u8; 2048];
 
+        self.start_periodic_flush().await;
+
         while *self.running.lock().await {
             match self.socket.recv(&mut buf).await {
                 Ok(size) => {
                     if let Err(e) = self.process_packet(&buf[..size]).await {
-                        eprintln!("Error processing packet: {}", e);
+                        error!("Error processing packet: {}", e);
                     }
                 }
-                Err(e) => eprintln!("Error receiving data: {}", e),
+                Err(e) => error!("Error receiving data: {}", e),
             }
         }
         Ok(())
+    }
+
+    async fn start_periodic_flush(&self) {
+        let data = self.data.clone();
+
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_millis(500));
+
+            loop {
+                interval.tick().await;
+
+                // Lock and swap the vector with an empty one
+                let data_to_flush = {
+                    let mut d = data.lock().await;
+                    std::mem::take(&mut *d) // Takes ownership and leaves an empty vec
+                };
+
+                if !data_to_flush.is_empty() {
+                    info!("Saving");
+
+                    // match db.save_batch(&data_to_flush).await {
+                    //     Ok(_) => {
+                    //         info!("Flushed {} records to database", data_to_flush.len());
+                    //     }
+                    //     Err(e) => {
+                    //         error!("Failed to flush to database: {}", e);
+                    //         // You might want to retry or handle the error differently
+                    //     }
+                    // }
+                }
+            }
+        });
+    }
+
+    async fn queue_packet(&self, header: PacketHeader, packet: FlushData) {
+        let mut data = self.data.lock().await;
+        data.push((header, packet));
     }
 
     pub async fn stop(&self) {
@@ -58,40 +107,38 @@ impl F1TelemetryClient {
     async fn process_packet(&self, data: &[u8]) -> Result<(), String> {
         let header = PacketHeader::try_from(data)?;
 
+        debug!(
+            "Received packet \"{:?}\" of size {}",
+            header.packet_id,
+            data.len() - PacketHeader::size()
+        );
+
         let bytes = &data[PacketHeader::size()..];
 
-        match header.packet_id {
-            PacketType::Motion => {
-                let _p = PacketMotionData::try_from(bytes)?;
-            }
-            PacketType::Session => {
-                let _p = PacketSessionData::try_from(bytes)?;
-                // println!("{:?}", p);
-            }
-            PacketType::CarTelemetry => {
-                let _p = PacketCarTelemetry::try_from(bytes)?;
-
-                // let mut session_data = self.session_data.lock().await;
-                // session_data.insert(Utc::now(), telemetry.clone());
-
-                // println!(
-                //     "Speed: {} km/h, Gear: {}, Throttle: {:.2}, Brake: {:.2}",
-                //     p.speed, p.gear, p.throttle, p.brake
-                // );
-            }
+        let p: Option<(PacketHeader, FlushData)> = match header.packet_id {
+            PacketType::Motion => Some((
+                header,
+                FlushData::Motion(PacketMotionData::try_from(bytes)?),
+            )),
+            PacketType::Session => Some((
+                header,
+                FlushData::Session(PacketSessionData::try_from(bytes)?),
+            )),
+            PacketType::CarTelemetry => Some((
+                header,
+                FlushData::CarTelemetry(PacketCarTelemetry::try_from(bytes)?),
+            )),
             PacketType::LapData => {
-                let _p = PacketLapData::try_from(bytes)?;
+                Some((header, FlushData::LapData(PacketLapData::try_from(bytes)?)))
             }
-            _ => (),
+            _ => None,
+        };
+
+        if let Some(data) = p {
+            self.queue_packet(data.0, data.1).await
         }
 
         Ok(())
     }
 
-    pub async fn save_session_data(&self, _filename: &str) -> Result<(), io::Error> {
-        // let session_data = self.session_data.lock().await;
-        // let json = serde_json::to_string_pretty(&*session_data)?;
-        // std::fs::write(filename, json)?;
-        Ok(())
-    }
 }

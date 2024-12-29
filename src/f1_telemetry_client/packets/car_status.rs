@@ -1,6 +1,6 @@
 use super::Packet;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CarStatusData {
     pub traction_control: u8,         // 0 = off, 1 = medium, 2 = full
     pub anti_lock_brakes: u8,         // 0 (off) - 1 (on)
@@ -36,10 +36,10 @@ pub struct CarStatusData {
     pub ers_harvested_this_lap_mguk: f32, // ERS energy harvested this lap by MGU-K
     pub ers_harvested_this_lap_mguh: f32, // ERS energy harvested this lap by MGU-H
     pub ers_deployed_this_lap: f32,       // ERS energy deployed this lap
-    pub network_paused: u8,               // Whether the car is paused in a network game
+    pub network_paused: bool,             // Whether the car is paused in a network game
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PacketCarStatusData {
     pub car_status_data: Vec<CarStatusData>, // Car status for all 22 cars
 }
@@ -136,52 +136,12 @@ impl TryFrom<&[u8]> for PacketCarStatusData {
                     bytes[offset + 52],
                     bytes[offset + 53],
                 ]),
-                network_paused: bytes[offset + 54],
+                network_paused: bytes[offset + 54] != 0,
             };
             car_status_data.push(status);
             offset += 55; // Size of each car status data block
         }
 
         Ok(PacketCarStatusData { car_status_data })
-    }
-}
-
-impl Default for CarStatusData {
-    fn default() -> Self {
-        CarStatusData {
-            traction_control: 0,
-            anti_lock_brakes: 0,
-            fuel_mix: 0,
-            front_brake_bias: 0,
-            pit_limiter_status: 0,
-            fuel_in_tank: 0.0,
-            fuel_capacity: 0.0,
-            fuel_remaining_laps: 0.0,
-            max_rpm: 0,
-            idle_rpm: 0,
-            max_gears: 0,
-            drs_allowed: 0,
-            drs_activation_distance: 0,
-            actual_tyre_compound: 0,
-            visual_tyre_compound: 0,
-            tyres_age_laps: 0,
-            vehicle_fia_flags: 0,
-            engine_power_ice: 0.0,
-            engine_power_mguk: 0.0,
-            ers_store_energy: 0.0,
-            ers_deploy_mode: 0,
-            ers_harvested_this_lap_mguk: 0.0,
-            ers_harvested_this_lap_mguh: 0.0,
-            ers_deployed_this_lap: 0.0,
-            network_paused: 0,
-        }
-    }
-}
-
-impl Default for PacketCarStatusData {
-    fn default() -> Self {
-        PacketCarStatusData {
-            car_status_data: Vec::new(),
-        }
     }
 }
