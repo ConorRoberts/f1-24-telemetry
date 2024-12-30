@@ -1,6 +1,7 @@
 mod packets;
 
 use chrono::{DateTime, Utc};
+use libsql::params;
 use packets::car_motion_data::PacketMotionData;
 use packets::car_telemetry::PacketCarTelemetry;
 use packets::header::PacketHeader;
@@ -15,6 +16,8 @@ use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info};
+
+use crate::db::connect_db;
 
 type SessionData = HashMap<DateTime<Utc>, PacketCarTelemetry>;
 
@@ -79,6 +82,24 @@ impl F1TelemetryClient {
 
                 if !data_to_flush.is_empty() {
                     info!("Saving");
+                    let db = connect_db().await.unwrap();
+
+                    if let Ok(tx) = db.transaction().await {
+                        for packet in data_to_flush {
+                            match packet.1 {
+                                FlushData::CarTelemetry(x) => {
+                                    info!("Session ID: {}", packet.0.session_uid);
+                                    tx.execute("insert into car_telemetry (session_id,speed,throttle,timestamp) values (?1,?2,?3,?4);", params![packet.0.session_uid.to_string(),x.speed,x.throttle,packet.0.session_time]).await.unwrap();
+                                    ()
+                                }
+                                _ => (),
+                            }
+                        }
+
+                        if let Err(e) = tx.commit().await {
+                            error!("Error saving data: {}", e);
+                        }
+                    };
 
                     // match db.save_batch(&data_to_flush).await {
                     //     Ok(_) => {
@@ -107,11 +128,11 @@ impl F1TelemetryClient {
     async fn process_packet(&self, data: &[u8]) -> Result<(), String> {
         let header = PacketHeader::try_from(data)?;
 
-        debug!(
-            "Received packet \"{:?}\" of size {}",
-            header.packet_id,
-            data.len() - PacketHeader::size()
-        );
+        // debug!(
+        //     "Received packet \"{:?}\" of size {}",
+        //     header.packet_id,
+        //     data.len() - PacketHeader::size()
+        // );
 
         let bytes = &data[PacketHeader::size()..];
 
@@ -140,5 +161,4 @@ impl F1TelemetryClient {
 
         Ok(())
     }
-
 }

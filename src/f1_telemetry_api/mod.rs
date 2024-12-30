@@ -1,5 +1,5 @@
 // mod db;
-// mod routes;
+mod routes;
 
 use poem::{listener::TcpListener, Result, Route, Server};
 use poem_openapi::{
@@ -7,6 +7,7 @@ use poem_openapi::{
     payload::{Json, PlainText},
     ApiResponse, Object, OpenApi, OpenApiService,
 };
+use routes::session::SessionApi;
 
 #[derive(Object, Default)]
 struct Something {
@@ -50,8 +51,8 @@ impl F1TelemetryApi {
     }
 
     pub async fn start(&self, addr: &str) -> Result<()> {
-        let api_service =
-            OpenApiService::new(Api, "Hello World", "1.0").server(format!("http://{}", addr));
+        let api_service = OpenApiService::new((Api, SessionApi), "Hello World", "1.0")
+            .server(format!("http://{}", addr));
 
         let spec = api_service.spec_endpoint();
 

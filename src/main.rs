@@ -1,13 +1,15 @@
+mod db;
 mod f1_telemetry_api;
 mod f1_telemetry_client;
 
 use clap::Parser;
+use db::connect_db;
 use f1_telemetry_api::F1TelemetryApi;
 use f1_telemetry_client::F1TelemetryClient;
 use std::error::Error;
 use std::process::exit;
 use std::sync::Arc;
-use tracing::{debug, error, Level};
+use tracing::{debug, Level};
 
 /// F1 24 Telemetry Client
 #[derive(Parser, Debug)]
@@ -35,11 +37,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
     tracing_subscriber::fmt()
-        .with_max_level(match args.debug {
-            true => Level::DEBUG,
-            _ => Level::ERROR,
+        .with_max_level(if args.debug {
+            Level::DEBUG
+        } else {
+            Level::ERROR
         })
         .init();
+
+    let db = connect_db().await.unwrap();
+
+    db.execute_batch(
+        r#"
+            create table if not exists car_telemetry (
+                session_id text,
+                timestamp real,
+                throttle real,
+                speed integer,
+                primary key (session_id, timestamp)
+            );
+        "#,
+    )
+    .await?;
 
     let udp_addr = format!("{}:{}", args.host, args.udp_port);
     let http_addr = format!("{}:{}", args.host, args.api_port);
