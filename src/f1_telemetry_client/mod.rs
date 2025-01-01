@@ -71,9 +71,10 @@ impl F1TelemetryClient {
             match self.socket.recv(&mut buf).await {
                 Ok(size) => match TelemetryPacket::try_from(&buf[..size]) {
                     Ok(p) => f(p),
-                    Err(e) => {
-                        error!("Error processing packet: {}", e);
-                    }
+                    // Err(e) => {
+                    //     error!("Error processing packet: {}", e);
+                    // }
+                    Err(_) => (),
                 },
                 Err(e) => error!("Error receiving data: {}", e),
             }

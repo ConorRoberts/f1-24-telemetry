@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{process::exit, sync::Arc};
 use tokio::sync::broadcast;
 use tracing::{debug, error};
+use tracing_subscriber::field::debug;
 
 // #[derive(Object, Clone)]
 // struct EventMetadata {
@@ -14,7 +15,7 @@ use tracing::{debug, error};
 // }
 
 // Data event
-#[derive(Object, Clone)]
+#[derive(Object, Clone, Debug)]
 struct CarTelemetryEvent {
     #[oai(rename = "type")]
     event_type: EventType,
@@ -25,7 +26,7 @@ struct CarTelemetryEvent {
 }
 
 // Heartbeat event
-#[derive(Object, Clone)]
+#[derive(Object, Clone, Debug)]
 struct HeartbeatEvent {
     #[oai(rename = "type")]
     event_type: EventType,
@@ -33,7 +34,7 @@ struct HeartbeatEvent {
     // metadata: EventMetadata,
 }
 
-#[derive(Clone, Enum, Serialize, Deserialize)]
+#[derive(Clone, Enum, Serialize, Deserialize, Debug)]
 #[oai(rename = "EventType")]
 pub enum EventType {
     #[oai(rename = "data")]
@@ -43,7 +44,7 @@ pub enum EventType {
 }
 
 // Union type for all possible events
-#[derive(Union, Clone)]
+#[derive(Union, Clone, Debug)]
 #[oai(discriminator_name = "type", one_of)]
 enum Event {
     #[oai(mapping = "data")]
@@ -58,6 +59,8 @@ impl TryFrom<TelemetryPacket> for Event {
     fn try_from(value: TelemetryPacket) -> Result<Event, Self::Error> {
         match value {
             TelemetryPacket::CarTelemetry((_, data)) => {
+                debug!("{:?}", data.speed);
+
                 Ok(Event::CarTelemetry(CarTelemetryEvent {
                     event_type: EventType::CarTelemetryEvent,
                     brake: data.brake,
@@ -70,7 +73,7 @@ impl TryFrom<TelemetryPacket> for Event {
 }
 
 pub struct EventsApi {
-    sender: broadcast::Sender<Event>,
+    sender: Arc<broadcast::Sender<Event>>,
 }
 
 #[OpenApi]
@@ -78,34 +81,41 @@ impl EventsApi {
     pub fn new(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel(capacity);
 
-        EventsApi { sender }
+        EventsApi {
+            sender: Arc::new(sender),
+        }
     }
 
     pub async fn start_listener(&self, addr: &str) {
-        let client = F1TelemetryClient::new(addr).await.unwrap();
+        let client = F1TelemetryClient::new("0.0.0.0:20777").await.unwrap();
 
         let client_handle = Arc::new(client);
 
-        let client_clone = client_handle.clone();
+        let ctrlc_client_clone = client_handle.clone();
         tokio::spawn(async move {
             tokio::signal::ctrl_c().await.unwrap();
             debug!("\nStopping telemetry capture...");
 
-            client_clone.stop().await;
+            ctrlc_client_clone.stop().await;
 
             exit(0);
         });
 
-        client_handle
-            .start(|x| {
-                if let Ok(ev) = Event::try_from(x) {
-                    if let Err(_) = self.sender.send(ev) {
-                        error!("Error sending event");
+        let client_clone = client_handle.clone();
+        let sender = self.sender.clone();
+
+        tokio::spawn(async move {
+            client_clone
+                .start(|x| {
+                    if let Ok(ev) = Event::try_from(x) {
+                        if let Err(e) = sender.send(ev) {
+                            error!("Error sending event {:?}", e.0);
+                        }
                     }
-                }
-            })
-            .await
-            .unwrap()
+                })
+                .await
+                .unwrap()
+        });
     }
 
     #[oai(path = "/events", method = "get")]

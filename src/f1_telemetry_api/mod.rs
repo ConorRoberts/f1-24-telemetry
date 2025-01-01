@@ -1,7 +1,9 @@
 // mod db;
 mod routes;
 
-use poem::{listener::TcpListener, Result, Route, Server};
+use poem::{
+    listener::TcpListener, middleware::Cors, EndpointExt, Middleware, Result, Route, Server,
+};
 use poem_openapi::{
     param::{Path, Query},
     payload::{Json, PlainText},
@@ -60,9 +62,12 @@ impl F1TelemetryApi {
 
         let spec = api_service.spec_endpoint();
 
+        let cors = Cors::new();
+
         let app = Route::new()
             .nest("/", api_service)
-            .nest("/openapi.json", spec);
+            .nest("/openapi.json", spec)
+            .with(cors);
 
         println!("Program started. Visit: {}", addr);
         Server::new(TcpListener::bind(addr)).run(app).await.unwrap();

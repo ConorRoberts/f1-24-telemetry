@@ -1,0 +1,11 @@
+{
+  "name": "f1-24-telemetry",
+  "scripts": {
+    "dev": "dotenv -- turbo run dev"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "turbo": "^2.3.3"
+  },
+  "packageManager": "pnpm@9.12.0"
+}

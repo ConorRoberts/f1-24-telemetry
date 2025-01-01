@@ -3,7 +3,7 @@ mod f1_telemetry_api;
 mod f1_telemetry_client;
 
 use clap::Parser;
-use db::connect_db;
+// use db::connect_db;
 use f1_telemetry_api::F1TelemetryApi;
 // use f1_telemetry_client::{F1TelemetryClient, TelemetryPacket};
 // use futures::StreamExt;
@@ -47,20 +47,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         })
         .init();
 
-    let db = connect_db().await.unwrap();
+    // let db = connect_db().await.unwrap();
 
-    db.execute_batch(
-        r#"
-            create table if not exists car_telemetry (
-                session_id text,
-                timestamp real,
-                throttle real,
-                speed integer,
-                primary key (session_id, timestamp)
-            );
-        "#,
-    )
-    .await?;
+    // db.execute_batch(
+    //     r#"
+    //         create table if not exists car_telemetry (
+    //             session_id text,
+    //             timestamp real,
+    //             throttle real,
+    //             speed integer,
+    //             primary key (session_id, timestamp)
+    //         );
+    //     "#,
+    // )
+    // .await?;
 
     // let udp_addr = format!("{}:{}", args.host, args.udp_port);
     let http_addr = format!("{}:{}", args.host, args.api_port);
