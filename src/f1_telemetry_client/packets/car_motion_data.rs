@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CarMotionData {
@@ -40,7 +40,7 @@ pub struct CarMotionData {
     pub roll: f32,
 }
 
-impl Packet for CarMotionData {
+impl PacketSize for CarMotionData {
     fn size() -> usize {
         60
     }
@@ -52,7 +52,7 @@ pub struct PacketMotionData {
     pub car_motion_data: [CarMotionData; 22],
 }
 
-impl Packet for PacketMotionData {
+impl PacketSize for PacketMotionData {
     fn size() -> usize {
         CarMotionData::size() * 22
     }

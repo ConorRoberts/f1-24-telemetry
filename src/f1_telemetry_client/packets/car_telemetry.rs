@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PacketCarTelemetry {
@@ -16,7 +16,7 @@ pub struct PacketCarTelemetry {
     pub tyre_inner_temp: [f32; 4],   // Tyre inner temperatures
 }
 
-impl Packet for PacketCarTelemetry {
+impl PacketSize for PacketCarTelemetry {
     fn size() -> usize {
         60
     }

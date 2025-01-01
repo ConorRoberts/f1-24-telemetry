@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone)]
 pub struct ParticipantData {
@@ -22,7 +22,7 @@ pub struct PacketParticipantsData {
     pub participants: Vec<ParticipantData>, // List of participants
 }
 
-impl Packet for PacketParticipantsData {
+impl PacketSize for PacketParticipantsData {
     fn size() -> usize {
         1350 // Size specified in the UDP spec
     }

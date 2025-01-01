@@ -7,7 +7,7 @@ use poem_openapi::{
     payload::{Json, PlainText},
     ApiResponse, Object, OpenApi, OpenApiService,
 };
-use routes::session::SessionApi;
+use routes::{events::EventsApi, session::SessionApi};
 
 #[derive(Object, Default)]
 struct Something {
@@ -51,7 +51,11 @@ impl F1TelemetryApi {
     }
 
     pub async fn start(&self, addr: &str) -> Result<()> {
-        let api_service = OpenApiService::new((Api, SessionApi), "Hello World", "1.0")
+        let events = EventsApi::new(500);
+
+        events.start_listener("0.0.0.0:5000").await;
+
+        let api_service = OpenApiService::new((Api, SessionApi, events), "Hello World", "1.0")
             .server(format!("http://{}", addr));
 
         let spec = api_service.spec_endpoint();

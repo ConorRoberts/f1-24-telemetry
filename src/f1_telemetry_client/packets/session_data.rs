@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy)]
 enum ZoneFlag {
@@ -59,7 +59,7 @@ impl TryFrom<&[u8]> for MarshalZone {
     }
 }
 
-impl Packet for MarshalZone {
+impl PacketSize for MarshalZone {
     fn size() -> usize {
         5
     }
@@ -77,7 +77,7 @@ pub struct WeatherForecastSample {
     pub rain_percentage: u8, // Rain percentage (0-100)
 }
 
-impl Packet for WeatherForecastSample {
+impl PacketSize for WeatherForecastSample {
     fn size() -> usize {
         8
     }
@@ -185,7 +185,7 @@ pub struct PacketSessionData {
     pub sector3_lap_distance_start: f32, // Distance in m for sector 3 start
 }
 
-impl Packet for PacketSessionData {
+impl PacketSize for PacketSessionData {
     fn size() -> usize {
         724
     }

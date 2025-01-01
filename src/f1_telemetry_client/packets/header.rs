@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug)]
 pub enum PacketType {
@@ -60,7 +60,7 @@ pub struct PacketHeader {
     pub secondary_player_car_index: u8, // Index of secondary player's car (255 if none)
 }
 
-impl Packet for PacketHeader {
+impl PacketSize for PacketHeader {
     fn size() -> usize {
         29
     }

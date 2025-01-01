@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone)]
 pub struct LobbyInfoData {
@@ -21,7 +21,7 @@ pub struct PacketLobbyInfoData {
     pub lobby_players: Vec<LobbyInfoData>, // Data for all players in the lobby
 }
 
-impl Packet for PacketLobbyInfoData {
+impl PacketSize for PacketLobbyInfoData {
     fn size() -> usize {
         1306 // Size specified in the UDP spec
     }

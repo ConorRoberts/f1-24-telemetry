@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 /// Final race result for a driver
 #[derive(Debug, Clone, PartialEq, Copy)]
@@ -55,7 +55,7 @@ pub struct FinalClassificationData {
     pub tyre_stints_end_laps: [u8; 8], // The lap number stints end on
 }
 
-impl Packet for FinalClassificationData {
+impl PacketSize for FinalClassificationData {
     fn size() -> usize {
         45
     }
@@ -67,7 +67,7 @@ pub struct PacketFinalClassificationData {
     pub classification_data: Vec<FinalClassificationData>, // Final classification data for all cars
 }
 
-impl Packet for PacketFinalClassificationData {
+impl PacketSize for PacketFinalClassificationData {
     fn size() -> usize {
         1020 // Size specified in the UDP spec
     }

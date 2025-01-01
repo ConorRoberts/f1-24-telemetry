@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PacketMotionExData {
@@ -30,7 +30,7 @@ pub struct PacketMotionExData {
     pub chassis_yaw: f32, // Yaw angle of the chassis relative to the direction of motion - radians
 }
 
-impl Packet for PacketMotionExData {
+impl PacketSize for PacketMotionExData {
     fn size() -> usize {
         237 // Size specified in the UDP spec
     }

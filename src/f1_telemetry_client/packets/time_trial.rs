@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy)]
 pub struct TimeTrialDataSet {
@@ -23,7 +23,7 @@ pub struct PacketTimeTrialData {
     pub rival_data_set: TimeTrialDataSet,               // Rival data set
 }
 
-impl Packet for PacketTimeTrialData {
+impl PacketSize for PacketTimeTrialData {
     fn size() -> usize {
         101 // Size specified in the UDP spec
     }

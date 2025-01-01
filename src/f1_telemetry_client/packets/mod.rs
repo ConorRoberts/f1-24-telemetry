@@ -14,6 +14,6 @@ pub mod session_data;
 pub mod time_trial;
 pub mod tyre_sets;
 
-pub trait Packet {
+pub trait PacketSize {
     fn size() -> usize;
 }

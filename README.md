@@ -8,3 +8,4 @@
 - [ ] Make API
 - [ ] Serve web client assets from API
 - [ ] Log web client address at startup time
+- [ ] Make websocket server so UI can get realtime updates

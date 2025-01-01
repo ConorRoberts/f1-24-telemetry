@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LapData {
@@ -70,7 +70,7 @@ pub struct LapData {
     pub speed_trap_fastest_lap: u8,
 }
 
-impl Packet for LapData {
+impl PacketSize for LapData {
     fn size() -> usize {
         57
     }
@@ -134,7 +134,7 @@ pub struct PacketLapData {
     pub time_trial_rival_car_idx: u8,
 }
 
-impl Packet for PacketLapData {
+impl PacketSize for PacketLapData {
     fn size() -> usize {
         1256
     }

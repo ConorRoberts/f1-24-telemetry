@@ -5,11 +5,14 @@ mod f1_telemetry_client;
 use clap::Parser;
 use db::connect_db;
 use f1_telemetry_api::F1TelemetryApi;
-use f1_telemetry_client::F1TelemetryClient;
+// use f1_telemetry_client::{F1TelemetryClient, TelemetryPacket};
+// use futures::StreamExt;
 use std::error::Error;
-use std::process::exit;
+// use std::process::exit;
 use std::sync::Arc;
-use tracing::{debug, Level};
+// use tokio::net::TcpListener;
+// use tokio_tungstenite::{accept_async, WebSocketStream};
+use tracing::Level;
 
 /// F1 24 Telemetry Client
 #[derive(Parser, Debug)]
@@ -59,29 +62,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    let udp_addr = format!("{}:{}", args.host, args.udp_port);
+    // let udp_addr = format!("{}:{}", args.host, args.udp_port);
     let http_addr = format!("{}:{}", args.host, args.api_port);
-    let client = F1TelemetryClient::new(&udp_addr).await?;
-    let client_handle = Arc::new(client);
 
     let api = F1TelemetryApi::new();
     let api_handle = Arc::new(api);
-
-    // Set up Ctrl+C handler
-    let client_clone = client_handle.clone();
-    tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.unwrap();
-        debug!("\nStopping telemetry capture...");
-
-        client_clone.stop().await;
-
-        exit(0);
-    });
-
-    // Start the client
-    tokio::spawn(async move {
-        client_handle.start().await.unwrap();
-    });
 
     api_handle.start(&http_addr).await?;
 

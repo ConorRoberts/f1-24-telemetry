@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CarSetupData {
@@ -33,7 +33,7 @@ pub struct PacketCarSetupData {
     pub next_front_wing_value: f32,    // Value of front wing after next pit stop - player only
 }
 
-impl Packet for PacketCarSetupData {
+impl PacketSize for PacketCarSetupData {
     fn size() -> usize {
         1133 // Size specified in the UDP spec
     }

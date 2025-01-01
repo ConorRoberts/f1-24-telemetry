@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LapHistoryData {
@@ -33,7 +33,7 @@ pub struct PacketSessionHistoryData {
     pub tyre_stints_history_data: Vec<TyreStintHistoryData>, // 8 tyre stints max
 }
 
-impl Packet for PacketSessionHistoryData {
+impl PacketSize for PacketSessionHistoryData {
     fn size() -> usize {
         1460 // Size specified in the UDP spec
     }

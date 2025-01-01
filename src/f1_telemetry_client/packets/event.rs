@@ -1,4 +1,4 @@
-use super::Packet;
+use super::PacketSize;
 
 #[derive(Debug, Clone, Copy)]
 pub struct FastestLap {
@@ -110,23 +110,23 @@ pub struct PacketEventData {
     pub event_details: EventDataDetails,
 }
 
-impl Packet for PacketEventData {
+impl PacketSize for PacketEventData {
     fn size() -> usize {
-        45  // Size specified in the UDP spec
+        45 // Size specified in the UDP spec
     }
 }
 
 impl TryFrom<&[u8]> for PacketEventData {
     type Error = String;
-    
+
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < PacketEventData::size() {
             return Err("Packet too short for PacketEventData".into());
         }
 
         let event_string_code = [bytes[0], bytes[1], bytes[2], bytes[3]];
-        let event_code = std::str::from_utf8(&event_string_code)
-            .map_err(|_| "Invalid event string code")?;
+        let event_code =
+            std::str::from_utf8(&event_string_code).map_err(|_| "Invalid event string code")?;
 
         let event_details = match event_code {
             "FTLP" => EventDataDetails::FastestLap(FastestLap {
@@ -157,7 +157,9 @@ impl TryFrom<&[u8]> for PacketEventData {
                 is_overall_fastest_in_session: bytes[9],
                 is_driver_fastest_in_session: bytes[10],
                 fastest_vehicle_idx_in_session: bytes[11],
-                fastest_speed_in_session: f32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]),
+                fastest_speed_in_session: f32::from_le_bytes([
+                    bytes[12], bytes[13], bytes[14], bytes[15],
+                ]),
             }),
             "STLG" => EventDataDetails::StartLights(StartLights {
                 num_lights: bytes[4],
@@ -169,8 +171,12 @@ impl TryFrom<&[u8]> for PacketEventData {
                 vehicle_idx: bytes[4],
             }),
             "FLBK" => EventDataDetails::Flashback(Flashback {
-                flashback_frame_identifier: u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
-                flashback_session_time: f32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
+                flashback_frame_identifier: u32::from_le_bytes([
+                    bytes[4], bytes[5], bytes[6], bytes[7],
+                ]),
+                flashback_session_time: f32::from_le_bytes([
+                    bytes[8], bytes[9], bytes[10], bytes[11],
+                ]),
             }),
             "BUTN" => EventDataDetails::Buttons(Buttons {
                 button_status: u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
