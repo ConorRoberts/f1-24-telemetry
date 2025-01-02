@@ -10,7 +10,7 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 pub struct F1TelemetryClient {
     socket: Arc<UdpSocket>,
@@ -64,7 +64,7 @@ impl F1TelemetryClient {
     where
         F: Fn(TelemetryPacket) -> (),
     {
-        println!("Listening for F1 24 telemetry data...");
+        info!("Listening for F1 24 telemetry data...");
         let mut buf = [0u8; 2048];
 
         while *self.running.lock().await {

@@ -5,14 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::{process::exit, sync::Arc};
 use tokio::sync::broadcast;
 use tracing::{debug, error};
-use tracing_subscriber::field::debug;
-
-// #[derive(Object, Clone)]
-// struct EventMetadata {
-//     timestamp: i64,
-//     #[oai(skip)]
-//     id: Option<u64>,
-// }
 
 // Data event
 #[derive(Object, Clone, Debug)]
@@ -21,8 +13,19 @@ struct CarTelemetryEvent {
     event_type: EventType,
     throttle: f32,
     brake: f32,
-    // #[oai(flatten)]
-    // metadata: EventMetadata,
+    speed: u16,
+}
+
+#[derive(Object, Clone, Debug)]
+struct CarMotionEvent {
+    #[oai(rename = "type")]
+    event_type: EventType,
+    world_position_x: f32,
+    world_position_y: f32,
+    world_position_z: f32,
+    g_force_lateral: f32,
+    g_force_longitudinal: f32,
+    g_force_vertical: f32,
 }
 
 // Heartbeat event
@@ -30,15 +33,15 @@ struct CarTelemetryEvent {
 struct HeartbeatEvent {
     #[oai(rename = "type")]
     event_type: EventType,
-    // #[oai(flatten)]
-    // metadata: EventMetadata,
 }
 
 #[derive(Clone, Enum, Serialize, Deserialize, Debug)]
 #[oai(rename = "EventType")]
 pub enum EventType {
-    #[oai(rename = "data")]
+    #[oai(rename = "car_telemetry")]
     CarTelemetryEvent,
+    #[oai(rename = "car_motion")]
+    CarMotionEvent,
     #[oai(rename = "heartbeat")]
     Heartbeat,
 }
@@ -47,8 +50,10 @@ pub enum EventType {
 #[derive(Union, Clone, Debug)]
 #[oai(discriminator_name = "type", one_of)]
 enum Event {
-    #[oai(mapping = "data")]
+    #[oai(mapping = "car_telemetry")]
     CarTelemetry(CarTelemetryEvent),
+    #[oai(mapping = "car_motion")]
+    CarMotion(CarMotionEvent),
     #[oai(mapping = "heartbeat")]
     Heartbeat(HeartbeatEvent),
 }
@@ -59,13 +64,27 @@ impl TryFrom<TelemetryPacket> for Event {
     fn try_from(value: TelemetryPacket) -> Result<Event, Self::Error> {
         match value {
             TelemetryPacket::CarTelemetry((_, data)) => {
-                debug!("{:?}", data.speed);
-
                 Ok(Event::CarTelemetry(CarTelemetryEvent {
                     event_type: EventType::CarTelemetryEvent,
                     brake: data.brake,
                     throttle: data.throttle,
+                    speed: data.speed,
                 }))
+            }
+            TelemetryPacket::Motion((_, data)) => {
+                if let Some(m) = data.car_motion_data.get(0) {
+                    Ok(Event::CarMotion(CarMotionEvent {
+                        event_type: EventType::CarTelemetryEvent,
+                        g_force_lateral: m.g_force_lateral,
+                        g_force_longitudinal: m.g_force_longitudinal,
+                        g_force_vertical: m.g_force_vertical,
+                        world_position_x: m.world_position_x,
+                        world_position_y: m.world_position_y,
+                        world_position_z: m.world_position_z,
+                    }))
+                } else {
+                    Err("Could not get car data for first car".into())
+                }
             }
             _ => Err("Unimplemented".into()),
         }
@@ -87,7 +106,7 @@ impl EventsApi {
     }
 
     pub async fn start_listener(&self, addr: &str) {
-        let client = F1TelemetryClient::new("0.0.0.0:20777").await.unwrap();
+        let client = F1TelemetryClient::new(addr).await.unwrap();
 
         let client_handle = Arc::new(client);
 
