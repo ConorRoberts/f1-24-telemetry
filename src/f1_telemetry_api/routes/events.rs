@@ -2,9 +2,9 @@ use crate::f1_telemetry_client::{F1TelemetryClient, TelemetryPacket};
 use futures_util::{stream::BoxStream, StreamExt};
 use poem_openapi::{payload::EventStream, Enum, Object, OpenApi, Union};
 use serde::{Deserialize, Serialize};
-use std::{process::exit, sync::Arc};
+use std::{any::Any, process::exit, sync::Arc};
 use tokio::sync::broadcast;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 // Data event
 #[derive(Object, Clone, Debug)]
@@ -14,6 +14,11 @@ struct CarTelemetryEvent {
     throttle: f32,
     brake: f32,
     speed: u16,
+    brake_temp: [u16; 4],       // Brake temperatures (FL, FR, RL, RR)
+    tyre_surface_temp: [u8; 4], // Tyre surface temperatures
+    tyre_inner_temp: [u8; 4],   // Tyre inner temperatures
+    engine_temperature: u16,
+    tyre_pressure: [f32; 4],
 }
 
 #[derive(Object, Clone, Debug)]
@@ -64,11 +69,17 @@ impl TryFrom<TelemetryPacket> for Event {
     fn try_from(value: TelemetryPacket) -> Result<Event, Self::Error> {
         match value {
             TelemetryPacket::CarTelemetry((_, data)) => {
+                info!("{:?}", data.brake_temp);
                 Ok(Event::CarTelemetry(CarTelemetryEvent {
                     event_type: EventType::CarTelemetryEvent,
                     brake: data.brake,
                     throttle: data.throttle,
                     speed: data.speed,
+                    tyre_inner_temp: data.tyre_inner_temp,
+                    tyre_surface_temp: data.tyre_surface_temp,
+                    brake_temp: data.brake_temp,
+                    engine_temperature: data.engine_temperature,
+                    tyre_pressure: data.tyre_pressure,
                 }))
             }
             TelemetryPacket::Motion((_, data)) => {

@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_max_level(if args.debug {
             Level::DEBUG
         } else {
-            Level::ERROR
+            Level::INFO
         })
         .init();
 

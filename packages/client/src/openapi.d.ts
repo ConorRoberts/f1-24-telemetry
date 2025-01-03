@@ -65,6 +65,12 @@ export interface components {
             brake: number;
             /** Format: uint16 */
             speed: number;
+            brake_temp: number[];
+            tyre_surface_temp: number[];
+            tyre_inner_temp: number[];
+            /** Format: uint16 */
+            engine_temperature: number;
+            tyre_pressure: number[];
         };
         Event: components["schemas"]["Event_CarTelemetryEvent"] | components["schemas"]["Event_CarMotionEvent"] | components["schemas"]["Event_HeartbeatEvent"];
         /** @enum {string} */

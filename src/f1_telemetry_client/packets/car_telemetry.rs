@@ -1,25 +1,40 @@
+use tracing::info;
+
 use super::PacketSize;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PacketCarTelemetry {
-    pub speed: u16,                  // Speed of car in km/h
-    pub throttle: f32,               // Amount of throttle applied (0.0 to 1.0)
-    pub steer: f32,                  // Steering (-1.0 for full left to 1.0 for full right)
-    pub brake: f32,                  // Amount of brake applied (0.0 to 1.0)
-    pub clutch: u8,                  // Amount of clutch applied (0 to 100)
-    pub gear: i8,                    // Gear selected (1-8, 0 = neutral, -1 = reverse)
-    pub engine_rpm: u16,             // Engine RPM
-    pub drs: u8,                     // 0 = off, 1 = on
-    pub rev_lights_percent: u8,      // Rev lights indicator (percentage)
-    pub brake_temp: [f32; 4],        // Brake temperatures (FL, FR, RL, RR)
-    pub tyre_surface_temp: [f32; 4], // Tyre surface temperatures
-    pub tyre_inner_temp: [f32; 4],   // Tyre inner temperatures
+    pub speed: u16,                 // Speed of car in km/h
+    pub throttle: f32,              // Amount of throttle applied (0.0 to 1.0)
+    pub steer: f32,                 // Steering (-1.0 for full left to 1.0 for full right)
+    pub brake: f32,                 // Amount of brake applied (0.0 to 1.0)
+    pub clutch: u8,                 // Amount of clutch applied (0 to 100)
+    pub gear: i8,                   // Gear selected (1-8, 0 = neutral, -1 = reverse)
+    pub engine_rpm: u16,            // Engine RPM
+    pub drs: u8,                    // 0 = off, 1 = on
+    pub rev_lights_percent: u8,     // Rev lights indicator (percentage)
+    pub rev_lights_bit_value: u16,  // Rev lights indicator (percentage)
+    pub brake_temp: [u16; 4],       // Brake temperatures (FL, FR, RL, RR)
+    pub tyre_surface_temp: [u8; 4], // Tyre surface temperatures
+    pub tyre_inner_temp: [u8; 4],   // Tyre inner temperatures
+    pub engine_temperature: u16,
+    pub tyre_pressure: [f32; 4],
+    pub surface_type: [u8; 4],
 }
 
 impl PacketSize for PacketCarTelemetry {
     fn size() -> usize {
         60
     }
+}
+
+fn read_f32_bytes(bytes: &[u8], offset: usize) -> f32 {
+    f32::from_le_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 impl TryFrom<&[u8]> for PacketCarTelemetry {
@@ -40,24 +55,23 @@ impl TryFrom<&[u8]> for PacketCarTelemetry {
             engine_rpm: u16::from_le_bytes([bytes[16], bytes[17]]),
             drs: bytes[18],
             rev_lights_percent: bytes[19],
+            rev_lights_bit_value: u16::from_le_bytes([bytes[20], bytes[21]]),
             brake_temp: [
-                f32::from_le_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]),
-                f32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]),
-                f32::from_le_bytes([bytes[28], bytes[29], bytes[30], bytes[31]]),
-                f32::from_le_bytes([bytes[32], bytes[33], bytes[34], bytes[35]]),
+                u16::from_le_bytes([bytes[22], bytes[23]]),
+                u16::from_le_bytes([bytes[24], bytes[25]]),
+                u16::from_le_bytes([bytes[26], bytes[27]]),
+                u16::from_le_bytes([bytes[28], bytes[29]]),
             ],
-            tyre_surface_temp: [
-                f32::from_le_bytes([bytes[36], bytes[37], bytes[38], bytes[39]]),
-                f32::from_le_bytes([bytes[40], bytes[41], bytes[42], bytes[43]]),
-                f32::from_le_bytes([bytes[44], bytes[45], bytes[46], bytes[47]]),
-                f32::from_le_bytes([bytes[48], bytes[49], bytes[50], bytes[51]]),
+            tyre_surface_temp: [bytes[30], bytes[31], bytes[32], bytes[33]],
+            tyre_inner_temp: [bytes[34], bytes[35], bytes[36], bytes[37]],
+            engine_temperature: u16::from_le_bytes([bytes[38], bytes[39]]),
+            tyre_pressure: [
+                read_f32_bytes(bytes, 40),
+                read_f32_bytes(bytes, 44),
+                read_f32_bytes(bytes, 48),
+                read_f32_bytes(bytes, 52),
             ],
-            tyre_inner_temp: [
-                f32::from_le_bytes([bytes[52], bytes[53], bytes[54], bytes[55]]),
-                f32::from_le_bytes([bytes[56], bytes[57], bytes[58], bytes[59]]),
-                f32::from_le_bytes([bytes[60], bytes[61], bytes[62], bytes[63]]),
-                f32::from_le_bytes([bytes[64], bytes[65], bytes[66], bytes[67]]),
-            ],
+            surface_type: [bytes[56], bytes[57], bytes[58], bytes[59]],
         });
     }
 }

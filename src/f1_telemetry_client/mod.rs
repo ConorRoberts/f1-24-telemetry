@@ -43,7 +43,7 @@ impl TryFrom<&[u8]> for TelemetryPacket {
             PacketType::Session => Ok(Self::Session((header, PacketSessionData::try_from(bytes)?))),
             PacketType::CarTelemetry => Ok(Self::CarTelemetry((
                 header,
-                PacketCarTelemetry::try_from(bytes)?,
+                PacketCarTelemetry::try_from(&bytes[..PacketCarTelemetry::size()])?,
             ))),
             PacketType::LapData => Ok(Self::LapData((header, PacketLapData::try_from(bytes)?))),
             _ => Err(format!("Unsupported packet type {:?}", header.packet_id)),
