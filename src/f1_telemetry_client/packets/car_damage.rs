@@ -32,7 +32,7 @@ pub struct PacketCarDamageData {
 
 impl PacketSize for PacketCarDamageData {
     fn size() -> usize {
-        953 // Size specified in the UDP spec
+        953
     }
 }
 

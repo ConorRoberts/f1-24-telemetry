@@ -1,3 +1,4 @@
+mod events;
 mod routes;
 
 use poem::{listener::TcpListener, middleware::Cors, EndpointExt, Result, Route, Server};

@@ -72,9 +72,9 @@ export interface components {
             engine_temperature: number;
             tyre_pressure: number[];
         };
-        Event: components["schemas"]["Event_CarTelemetryEvent"] | components["schemas"]["Event_CarMotionEvent"] | components["schemas"]["Event_HeartbeatEvent"];
+        Event: components["schemas"]["Event_CarTelemetryEvent"] | components["schemas"]["Event_CarMotionEvent"] | components["schemas"]["Event_LapDataEvent"] | components["schemas"]["Event_HeartbeatEvent"];
         /** @enum {string} */
-        EventType: "car_telemetry" | "car_motion" | "heartbeat";
+        EventType: "car_telemetry" | "car_motion" | "lap_data" | "heartbeat";
         Event_CarMotionEvent: {
             /**
              * @example car_motion
@@ -114,8 +114,62 @@ export interface components {
              */
             type: "heartbeat";
         };
+        Event_LapDataEvent: {
+            /**
+             * @example lap_data
+             * @enum {string}
+             */
+            type: "lap_data";
+        } & components["schemas"]["LapDataEvent"] & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "lap_data";
+        };
         HeartbeatEvent: {
             type: components["schemas"]["EventType"];
+        };
+        LapDataEvent: {
+            type: components["schemas"]["EventType"];
+            /** Format: uint32 */
+            last_lap_time_in_ms: number;
+            /** Format: uint32 */
+            current_lap_time_in_ms: number;
+            /** Format: uint16 */
+            sector1_time_ms_part: number;
+            /** Format: uint8 */
+            sector1_time_minutes_part: number;
+            /** Format: uint16 */
+            sector2_time_ms_part: number;
+            /** Format: uint8 */
+            sector2_time_minutes_part: number;
+            /** Format: uint16 */
+            delta_to_car_in_front_ms_part: number;
+            /** Format: uint8 */
+            delta_to_car_in_front_minutes_part: number;
+            /** Format: uint16 */
+            delta_to_race_leader_ms_part: number;
+            /** Format: uint8 */
+            delta_to_race_leader_minutes_part: number;
+            /** Format: float */
+            lap_distance: number;
+            /** Format: float */
+            total_distance: number;
+            /** Format: uint8 */
+            car_position: number;
+            /** Format: uint8 */
+            current_lap_num: number;
+            /** Format: uint8 */
+            sector: number;
+            /** Format: uint8 */
+            current_lap_invalid: number;
+            /** Format: uint8 */
+            grid_position: number;
+            /** Format: uint8 */
+            driver_status: number;
+            /** Format: uint8 */
+            result_status: number;
         };
     };
     responses: never;

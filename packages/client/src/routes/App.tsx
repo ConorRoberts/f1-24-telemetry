@@ -1,11 +1,5 @@
 import { type FC, useEffect, useMemo, useRef, useState } from "react";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  CartesianGrid,
-  Legend,
-} from "recharts";
+import { LineChart, Line, ResponsiveContainer, CartesianGrid } from "recharts";
 import { config } from "../config";
 import type { components } from "../openapi";
 
@@ -17,6 +11,8 @@ const defaultTelemetryEvent: components["schemas"]["CarTelemetryEvent"] = {
   brake_temp: [],
   tyre_inner_temp: [],
   tyre_surface_temp: [],
+  engine_temperature: 0,
+  tyre_pressure: [],
 };
 
 const defaultMotionEvent: components["schemas"]["CarMotionEvent"] = {
@@ -29,16 +25,20 @@ const defaultMotionEvent: components["schemas"]["CarMotionEvent"] = {
   world_position_z: 0,
 };
 
-const maxArraySize = 500;
+const maxArraySize = 1000;
+const pointSize = 15;
 
 const Tires: FC<{ data: components["schemas"]["CarTelemetryEvent"] }> = (
   props,
 ) => {
   return (
-    <div className="grid grid-cols-2 gap-1 w-max">
+    <div className="grid grid-cols-2 gap-1 w-max h-max">
       {[...Array.from({ length: 4 })].map((_, i) => (
-        <div key={i.toString()} className="size-16 bg-gray-100 rounded-full">
-          {props.data.tyre_surface_temp[i]}
+        <div
+          key={i.toString()}
+          className="size-16 bg-gray-100 rounded-full flex items-center justify-center"
+        >
+          <p className="font-extrabold">{props.data.tyre_surface_temp[i]}</p>
         </div>
       ))}
     </div>
@@ -56,40 +56,105 @@ export const App = () => {
     components["schemas"]["CarMotionEvent"][]
   >([...Array.from({ length: maxArraySize })].map(() => defaultMotionEvent));
 
-  const motionArr = useRef<typeof motionData>([]);
+  // Mapping timestamp to data. Need to insert into this object by selecting a timestamp close enough to the incoming data's timestamp
+  const lapData = useRef<
+    Record<string, { x: number; y: number; speed: number }>
+  >({});
 
   useEffect(() => {
     const es = new EventSource(`${config.apiHost}/events`, {
       withCredentials: false,
     });
 
+    let motionDataIdx = 0;
+    let telemetryDataIdx = 0;
+    let currentLap = 1;
     es.onmessage = (e) => {
       try {
         const json: components["schemas"]["Event"] = JSON.parse(e.data);
 
         if (json.type === "car_telemetry") {
-          setCarData((prev) => [
-            ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
-            json,
-          ]);
+          if (telemetryDataIdx % 2 === 0) {
+            setCarData((prev) => [
+              ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
+              json,
+            ]);
+          }
+
+          telemetryDataIdx++;
+        } else if (json.type === "lap_data") {
+          if (json.current_lap_num !== currentLap) {
+            currentLap = json.current_lap_num;
+
+            // Show map
+          }
         } else if (json.type === "car_motion") {
           setMotionData((prev) => [
             ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
             json,
           ]);
 
-          motionArr.current = [
-            ...(motionArr.current.length >= maxArraySize
-              ? motionArr.current.slice(1)
-              : motionArr.current),
-            json,
-          ];
-
-          if (canvasRef.current) {
-            // TODO: Show car moving around track
+          if (motionDataIdx % 15 === 0) {
+            lapData.current[""] = {
+              x: json.world_position_x,
+              y: json.world_position_z,
+              speed: 0,
+            };
           }
+
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            return;
+          }
+
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            return;
+          }
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          const l = Object.values(lapData.current);
+          const scale = 2;
+          const xPoints = l.map((e) => e.x * scale);
+          const yPoints = l.map((e) => e.y * scale);
+
+          const bounds = {
+            minX: Math.min(...xPoints),
+            maxX: Math.max(...xPoints),
+            minY: Math.min(...yPoints),
+            maxY: Math.max(...yPoints),
+          };
+
+          canvas.width = bounds.maxX * 1.1;
+          canvas.height = bounds.maxY * 1.1;
+
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+
+          ctx.beginPath();
+
+          ctx.strokeStyle = "dodgerblue";
+          ctx.lineWidth = pointSize;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+
+          let i = 0;
+          for (const { x, y } of l) {
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+              ctx.stroke();
+            }
+
+            i++;
+          }
+
+          motionDataIdx++;
         }
-      } catch (_e) {
+      } catch (e) {
+        console.error(e);
         return;
       }
     };
@@ -109,10 +174,10 @@ export const App = () => {
   const latestMotion = useMemo(() => motionData.at(-1), [motionData]);
 
   return (
-    <div className="p-4 flex flex-col gap-4">
+    <div className="p-1 flex flex-col gap-4">
       <div className="flex gap-4">
         <div
-          style={{ height: "300px", width: "300px" }}
+          style={{ height: "300px", width: "600px" }}
           className="bg-white border border-gray-200"
         >
           <ResponsiveContainer width="100%" height="100%">
@@ -137,7 +202,24 @@ export const App = () => {
           </ResponsiveContainer>
         </div>
         <div
-          style={{ height: "300px", width: "300px" }}
+          style={{ height: "300px", width: "600px" }}
+          className="bg-white border border-gray-200"
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={carData}>
+              <CartesianGrid />
+              <Line
+                dot={false}
+                type="monotone"
+                dataKey="speed"
+                stroke="#0044ff"
+                strokeWidth={2}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        {/* <div
+          style={{ height: "300px", width: "600px" }}
           className="bg-white border border-gray-200"
         >
           <ResponsiveContainer width="100%" height="100%">
@@ -167,32 +249,15 @@ export const App = () => {
               />
             </LineChart>
           </ResponsiveContainer>
+        </div> */}
+        <div className="bg-gray-100 border p-4 font-semibold h-max">
+          <p>{latestSpeed} km/h</p>
         </div>
+        {latestCarData && <Tires data={latestCarData} />}
       </div>
-      <div className="bg-gray-100 border p-4 font-semibold">
-        <p>{latestSpeed} km/h</p>
-      </div>
-      {latestCarData && <Tires data={latestCarData} />}
-      {latestMotion && (
-        <div className="flex items-center gap-1">
-          <div className="bg-gray-100 border p-4 font-semibold flex items-center">
-            <p>X: {latestMotion.g_force_lateral}</p>
-          </div>
-          <div className="bg-gray-100 border p-4 font-semibold flex items-center">
-            <p>Y: {latestMotion.g_force_vertical}</p>
-          </div>
-          <div className="bg-gray-100 border p-4 font-semibold flex items-center">
-            <p>Z: {latestMotion.g_force_longitudinal}</p>
-          </div>
-        </div>
-      )}
 
       <canvas
-        className="bg-gray-100 border"
-        // style={{
-        //   width: `${canvasWidth}px`,
-        //   height: `${canvasHeight}px`,
-        // }}
+        className="bg-gray-100 border w-[1200px] h-[600px]"
         ref={canvasRef}
       />
     </div>
