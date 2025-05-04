@@ -46,18 +46,18 @@ impl TryFrom<u8> for PacketType {
 
 #[derive(Debug)]
 pub struct PacketHeader {
-    pub packet_format: u16,             // 2024
-    pub game_year: u8,                  // Game year - last two digits e.g. 24
-    pub game_major_version: u8,         // Game major version - "X.00"
-    pub game_minor_version: u8,         // Game minor version - "1.XX"
-    pub packet_version: u8,             // Version of this packet type
-    pub packet_id: PacketType,          // Identifier for the packet type
-    pub session_uid: u64,               // Unique identifier for the session
-    pub session_time: f32,              // Session timestamp
-    pub frame_identifier: u32,          // Frame identifier
-    pub overall_frame_identifier: u32,  // Overall frame identifier
-    pub player_car_index: u8,           // Index of player's car
-    pub secondary_player_car_index: u8, // Index of secondary player's car (255 if none)
+    pub packet_format: u16,                     // 2024
+    pub game_year: u8,                          // Game year - last two digits e.g. 24
+    pub game_major_version: u8,                 // Game major version - "X.00"
+    pub game_minor_version: u8,                 // Game minor version - "1.XX"
+    pub packet_version: u8,                     // Version of this packet type
+    pub packet_id: PacketType,                  // Identifier for the packet type
+    pub session_uid: u64,                       // Unique identifier for the session
+    pub session_time: f32,                      // Session timestamp
+    pub frame_identifier: u32,                  // Frame identifier
+    pub overall_frame_identifier: u32,          // Overall frame identifier
+    pub player_car_index: u8,                   // Index of player's car
+    pub secondary_player_car_index: Option<u8>, // Index of secondary player's car (255 if none)
 }
 
 impl PacketSize for PacketHeader {
@@ -90,7 +90,11 @@ impl TryFrom<&[u8]> for PacketHeader {
             frame_identifier: u32::from_le_bytes([data[19], data[20], data[21], data[22]]),
             overall_frame_identifier: u32::from_le_bytes([data[23], data[24], data[25], data[26]]),
             player_car_index: data[27],
-            secondary_player_car_index: data[28],
+            secondary_player_car_index: if data[28] == 255 {
+                None
+            } else {
+                Some(data[28])
+            },
         })
     }
 }

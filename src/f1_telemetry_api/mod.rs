@@ -15,7 +15,7 @@ impl F1TelemetryApi {
     }
 
     pub async fn start(&self, addr: &str) -> Result<()> {
-        let events = EventsApi::new(500);
+        let events = EventsApi::new(5000);
 
         // Begin listening for UDP data from F1 game
         events.start_listener("0.0.0.0:20777").await;

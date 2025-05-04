@@ -2,6 +2,11 @@ use crate::f1_telemetry_client::TelemetryPacket;
 use poem_openapi::{Enum, Object, Union};
 use serde::{Deserialize, Serialize};
 
+#[derive(Object, Clone, Debug)]
+pub struct EventMetadata {
+    pub timestamp: f32,
+}
+
 // Heartbeat event
 #[derive(Object, Clone, Debug)]
 pub struct HeartbeatEvent {
@@ -49,6 +54,9 @@ pub struct CarTelemetryEvent {
     pub tyre_inner_temp: [u8; 4],   // Tyre inner temperatures
     pub engine_temperature: u16,
     pub tyre_pressure: [f32; 4],
+
+    #[oai(flatten)]
+    pub metadata: EventMetadata,
 }
 
 #[derive(Object, Clone, Debug)]
@@ -58,9 +66,8 @@ pub struct CarMotionEvent {
     pub world_position_x: f32,
     pub world_position_y: f32,
     pub world_position_z: f32,
-    pub g_force_lateral: f32,
-    pub g_force_longitudinal: f32,
-    pub g_force_vertical: f32,
+    #[oai(flatten)]
+    pub metadata: EventMetadata,
 }
 
 #[derive(Object, Clone, Debug)]
@@ -86,6 +93,9 @@ pub struct LapDataEvent {
     pub grid_position: u8,
     pub driver_status: u8,
     pub result_status: u8,
+
+    #[oai(flatten)]
+    pub metadata: EventMetadata,
 }
 
 impl TryFrom<TelemetryPacket> for Event {
@@ -93,7 +103,7 @@ impl TryFrom<TelemetryPacket> for Event {
 
     fn try_from(value: TelemetryPacket) -> Result<Event, Self::Error> {
         match value {
-            TelemetryPacket::CarTelemetry((_, data)) => {
+            TelemetryPacket::CarTelemetry((header, data)) => {
                 Ok(Event::CarTelemetry(CarTelemetryEvent {
                     event_type: EventType::CarTelemetryEvent,
                     brake: data.brake,
@@ -104,9 +114,12 @@ impl TryFrom<TelemetryPacket> for Event {
                     brake_temp: data.brake_temp,
                     engine_temperature: data.engine_temperature,
                     tyre_pressure: data.tyre_pressure,
+                    metadata: EventMetadata {
+                        timestamp: header.session_time,
+                    },
                 }))
             }
-            TelemetryPacket::Motion((_, data)) => match data.car_motion_data.get(0) {
+            TelemetryPacket::Motion((header, data)) => match data.car_motion_data.get(0) {
                 Some(m) => Ok(Event::CarMotion(CarMotionEvent {
                     event_type: EventType::CarTelemetryEvent,
                     g_force_lateral: m.g_force_lateral,
@@ -115,10 +128,13 @@ impl TryFrom<TelemetryPacket> for Event {
                     world_position_x: m.world_position_x,
                     world_position_y: m.world_position_y,
                     world_position_z: m.world_position_z,
+                    metadata: EventMetadata {
+                        timestamp: header.session_time,
+                    },
                 })),
                 _ => Err("Could not get car data for first car".into()),
             },
-            TelemetryPacket::LapData((_, data)) => match data.lap_data.get(0) {
+            TelemetryPacket::LapData((header, data)) => match data.lap_data.get(0) {
                 Some(d) => Ok(Event::LapData(LapDataEvent {
                     event_type: EventType::LapDataEvent,
                     car_position: d.car_position,
@@ -140,6 +156,9 @@ impl TryFrom<TelemetryPacket> for Event {
                     sector2_time_minutes_part: d.sector2_time_minutes_part,
                     sector2_time_ms_part: d.sector2_time_ms_part,
                     total_distance: d.total_distance,
+                    metadata: EventMetadata {
+                        timestamp: header.session_time,
+                    },
                 })),
                 _ => Err("Error getting first item of lap data array".into()),
             },

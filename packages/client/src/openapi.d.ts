@@ -56,6 +56,8 @@ export interface components {
             g_force_longitudinal: number;
             /** Format: float */
             g_force_vertical: number;
+            /** Format: float */
+            timestamp: number;
         };
         CarTelemetryEvent: {
             type: components["schemas"]["EventType"];
@@ -71,6 +73,8 @@ export interface components {
             /** Format: uint16 */
             engine_temperature: number;
             tyre_pressure: number[];
+            /** Format: float */
+            timestamp: number;
         };
         Event: components["schemas"]["Event_CarTelemetryEvent"] | components["schemas"]["Event_CarMotionEvent"] | components["schemas"]["Event_LapDataEvent"] | components["schemas"]["Event_HeartbeatEvent"];
         /** @enum {string} */
@@ -170,6 +174,8 @@ export interface components {
             driver_status: number;
             /** Format: uint8 */
             result_status: number;
+            /** Format: float */
+            timestamp: number;
         };
     };
     responses: never;

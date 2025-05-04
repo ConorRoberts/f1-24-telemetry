@@ -1,11 +1,13 @@
 {
   "name": "f1-24-telemetry",
   "scripts": {
-    "dev": "dotenv -- turbo run dev"
+    "dev": "dotenv -- turbo run dev",
+    "build:openapi": "openapi-typescript http://localhost:4000/openapi.json -o packages/client/src/openapi.d.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "dotenv-cli": "8.0.0",
+    "openapi-typescript": "^7.4.4",
     "turbo": "2.3.3"
   },
   "packageManager": "pnpm@9.12.0"

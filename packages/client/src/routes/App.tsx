@@ -13,6 +13,7 @@ const defaultTelemetryEvent: components["schemas"]["CarTelemetryEvent"] = {
   tyre_surface_temp: [],
   engine_temperature: 0,
   tyre_pressure: [],
+  timestamp: 0,
 };
 
 const defaultMotionEvent: components["schemas"]["CarMotionEvent"] = {
@@ -23,6 +24,7 @@ const defaultMotionEvent: components["schemas"]["CarMotionEvent"] = {
   world_position_x: 0,
   world_position_y: 0,
   world_position_z: 0,
+  timestamp: 0,
 };
 
 const maxArraySize = 1000;
@@ -62,106 +64,182 @@ export const App = () => {
   >({});
 
   useEffect(() => {
-    const es = new EventSource(`${config.apiHost}/events`, {
-      withCredentials: false,
-    });
+    const connect = async () => {
+      const ctl = new AbortController();
 
-    let motionDataIdx = 0;
-    let telemetryDataIdx = 0;
-    let currentLap = 1;
-    es.onmessage = (e) => {
-      try {
-        const json: components["schemas"]["Event"] = JSON.parse(e.data);
+      const response = await fetch(`${config.apiHost}/events`, {
+        headers: {
+          Accept: "text/event-stream",
+        },
+        signal: ctl.signal,
+      });
 
-        if (json.type === "car_telemetry") {
-          if (telemetryDataIdx % 2 === 0) {
-            setCarData((prev) => [
-              ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
-              json,
-            ]);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("ReadableStream not supported");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+
+        for (const e of events) {
+          if (e.trim().length === 0) {
+            continue;
           }
-
-          telemetryDataIdx++;
-        } else if (json.type === "lap_data") {
-          if (json.current_lap_num !== currentLap) {
-            currentLap = json.current_lap_num;
-
-            // Show map
-          }
-        } else if (json.type === "car_motion") {
-          setMotionData((prev) => [
-            ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
-            json,
-          ]);
-
-          if (motionDataIdx % 15 === 0) {
-            lapData.current[""] = {
+          const json: components["schemas"]["Event"] = JSON.parse(e.slice(5));
+          if (json.type === "car_motion") {
+            lapData.current[Math.floor(json.timestamp * 1_000_000)] = {
               x: json.world_position_x,
               y: json.world_position_z,
               speed: 0,
             };
-          }
 
-          const canvas = canvasRef.current;
-          if (!canvas) {
-            return;
-          }
-
-          const ctx = canvas.getContext("2d");
-
-          if (!ctx) {
-            return;
-          }
-
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          const l = Object.values(lapData.current);
-          const scale = 2;
-          const xPoints = l.map((e) => e.x * scale);
-          const yPoints = l.map((e) => e.y * scale);
-
-          const bounds = {
-            minX: Math.min(...xPoints),
-            maxX: Math.max(...xPoints),
-            minY: Math.min(...yPoints),
-            maxY: Math.max(...yPoints),
-          };
-
-          canvas.width = bounds.maxX * 1.1;
-          canvas.height = bounds.maxY * 1.1;
-
-          ctx.translate(canvas.width / 2, canvas.height / 2);
-
-          ctx.beginPath();
-
-          ctx.strokeStyle = "dodgerblue";
-          ctx.lineWidth = pointSize;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-
-          let i = 0;
-          for (const { x, y } of l) {
-            if (i === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-              ctx.stroke();
+            const canvas = canvasRef.current;
+            if (!canvas) {
+              return;
             }
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              return;
+            }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const l = Object.values(lapData.current);
+            const scale = 2;
+            const xPoints = l.map((e) => e.x * scale);
+            const yPoints = l.map((e) => e.y * scale);
+            const bounds = {
+              minX: Math.min(...xPoints),
+              maxX: Math.max(...xPoints),
+              minY: Math.min(...yPoints),
+              maxY: Math.max(...yPoints),
+            };
+            canvas.width = bounds.maxX * 2;
+            canvas.height = bounds.maxY * 2;
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.beginPath();
+            ctx.strokeStyle = `hsl(${Math.floor(Math.random() * 360)} 100% 50%)`;
+            ctx.lineWidth = pointSize;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
 
-            i++;
+            let i = 0;
+            for (const { x, y } of l) {
+              if (i === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+                ctx.stroke();
+              }
+              i++;
+            }
           }
-
-          motionDataIdx++;
         }
-      } catch (e) {
-        console.error(e);
-        return;
       }
+
+      // const es = new EventSource(`${config.apiHost}/events`, {
+      //   withCredentials: false,
+      // });
+
+      // const motionDataIdx = 0;
+      // let telemetryDataIdx = 0;
+      // let currentLap = 1;
+      // let lastEventTime = Date.now();
+
+      // es.onmessage = (e) => {
+      //   // console.log(`Delay: ${Date.now() - lastEventTime}`);
+      //   lastEventTime = Date.now();
+      //   try {
+      //     const json: components["schemas"]["Event"] = JSON.parse(e.data);
+
+      //     if (json.type === "car_telemetry") {
+      //       if (telemetryDataIdx % 2 === 0) {
+      //         // setCarData((prev) => [
+      //         //   ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
+      //         //   json,
+      //         // ]);
+      //       }
+
+      //       telemetryDataIdx++;
+      //     } else if (json.type === "lap_data") {
+      //       if (json.current_lap_num !== currentLap) {
+      //         currentLap = json.current_lap_num;
+
+      //         // Show map
+      //       }
+      //     } else if (json.type === "car_motion") {
+      //       // setMotionData((prev) => [
+      //       //   ...(prev.length >= maxArraySize ? prev.slice(1) : prev),
+      //       //   json,
+      //       // ]);
+      //       // lapData.current[Math.floor(json.timestamp * 1_000_000)] = {
+      //       //   x: json.world_position_x,
+      //       //   y: json.world_position_z,
+      //       //   speed: 0,
+      //       // };
+      //       // const canvas = canvasRef.current;
+      //       // if (!canvas) {
+      //       //   return;
+      //       // }
+      //       // const ctx = canvas.getContext("2d");
+      //       // if (!ctx) {
+      //       //   return;
+      //       // }
+      //       // ctx.clearRect(0, 0, canvas.width, canvas.height);
+      //       // const l = Object.values(lapData.current);
+      //       // const scale = 2;
+      //       // const xPoints = l.map((e) => e.x * scale);
+      //       // const yPoints = l.map((e) => e.y * scale);
+      //       // const bounds = {
+      //       //   minX: Math.min(...xPoints),
+      //       //   maxX: Math.max(...xPoints),
+      //       //   minY: Math.min(...yPoints),
+      //       //   maxY: Math.max(...yPoints),
+      //       // };
+      //       // canvas.width = bounds.maxX * 2;
+      //       // canvas.height = bounds.maxY * 2;
+      //       // ctx.translate(canvas.width / 2, canvas.height / 2);
+      //       // ctx.beginPath();
+      //       // ctx.strokeStyle = `hsl(${Math.floor(Math.random() * 360)} 100% 50%)`;
+      //       // ctx.lineWidth = pointSize;
+      //       // ctx.lineCap = "round";
+      //       // ctx.lineJoin = "round";
+      //       // let i = 0;
+      //       // for (const { x, y } of l) {
+      //       //   if (i === 0) {
+      //       //     ctx.moveTo(x, y);
+      //       //   } else {
+      //       //     ctx.lineTo(x, y);
+      //       //     ctx.stroke();
+      //       //   }
+      //       //   i++;
+      //       // }
+      //       // motionDataIdx++;
+      //     }
+      //   } catch (e) {
+      //     console.error(e);
+      //   }
+      // };
+
+      // es.onerror = (e) => {
+      //   console.error(e);
+      // };
     };
 
-    es.onerror = (e) => {
-      console.error(e);
-    };
+    connect();
   }, []);
 
   const _averageSpeed = useMemo(
@@ -171,7 +249,7 @@ export const App = () => {
 
   const latestSpeed = useMemo(() => carData.at(-1)?.speed ?? 0, [carData]);
   const latestCarData = useMemo(() => carData.at(-1), [carData]);
-  const latestMotion = useMemo(() => motionData.at(-1), [motionData]);
+  const _latestMotion = useMemo(() => motionData.at(-1), [motionData]);
 
   return (
     <div className="p-1 flex flex-col gap-4">
@@ -261,5 +339,16 @@ export const App = () => {
         ref={canvasRef}
       />
     </div>
+  );
+};
+
+const _TrackMap = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  return (
+    <canvas
+      className="bg-gray-100 border w-[1200px] h-[600px]"
+      ref={canvasRef}
+    />
   );
 };

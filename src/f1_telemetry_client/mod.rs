@@ -15,6 +15,7 @@ use tracing::{debug, error, info};
 pub struct F1TelemetryClient {
     socket: Arc<UdpSocket>,
     running: Arc<Mutex<bool>>,
+    // data: Arc<Mutex<Vec<TelemetryPacket>>>,
 }
 
 pub enum TelemetryPacket {
@@ -57,6 +58,7 @@ impl F1TelemetryClient {
         Ok(Self {
             socket: Arc::new(socket),
             running: Arc::new(Mutex::new(true)),
+            // data: Arc::new(Mutex::new(Vec::new())),
         })
     }
 
